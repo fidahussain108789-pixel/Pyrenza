@@ -12,11 +12,12 @@ class T:
         x = T(10)       # create
         x.set(42)       # update
         print(x)        # 42  (works like a normal variable)
-        x[-1]           # previous value
-        x[0]            # very first value
+        x.prev          # previous value
+        x.first         # very first value
         x.why()         # explains the last change
         x.log()         # full history timeline
         x.diff()        # shows every change + delta
+        x.ago(3)        # what it was 3 seconds ago
     """
 
     __slots__ = ("_history",)
@@ -25,67 +26,43 @@ class T:
         self._history: list[dict] = []
         self._snapshot(value)
 
-    # ─── private ────────────────────────────────────────────────────────────
-
     def _snapshot(self, value: Any) -> None:
         frame = traceback.extract_stack()[-3]
         self._history.append({
             "v": value,
             "t": time.time(),
-            "at": datetime.now().strftime("%H:%M:%S.%f")[:-3],  # trim to ms
-            "file": frame.filename.split("/")[-1],              # just filename
+            "at": datetime.now().strftime("%H:%M:%S.%f")[:-3],
+            "file": frame.filename.split("/")[-1].split("\\")[-1],
             "line": frame.lineno,
             "code": (frame.line or "").strip(),
         })
 
-    # ─── core api ───────────────────────────────────────────────────────────
-
     def set(self, value: Any) -> "T":
-        """Update the value. Returns self so you can chain."""
         self._snapshot(value)
         return self
 
     @property
     def value(self) -> Any:
-        """The current value."""
         return self._history[-1]["v"]
-
-    # ─── time travel ────────────────────────────────────────────────────────
-
-    def __getitem__(self, index: int) -> Any:
-        """
-        Standard list indexing over the history.
-        x[0]   → first ever value
-        x[-1]  → current value  (last item)
-        x[-2]  → previous value (one before current)
-        """
-        return self._history[index]["v"]
 
     @property
     def prev(self) -> Any:
-        """Shortcut: the value just before the current one."""
         if len(self._history) < 2:
             raise IndexError("no previous value yet")
         return self._history[-2]["v"]
 
     @property
     def first(self) -> Any:
-        """Shortcut: the very first value this variable ever had."""
         return self._history[0]["v"]
 
     def ago(self, seconds: float) -> Any:
-        """x.ago(3) → what x was 3 seconds ago"""
         target = time.time() - seconds
         closest = min(self._history, key=lambda e: abs(e["t"] - target))
         return closest["v"]
 
-    # ─── inspection ─────────────────────────────────────────────────────────
-
     def why(self) -> None:
-        """Explains why the current value is what it is."""
         last = self._history[-1]
         prev = self._history[-2] if len(self._history) > 1 else None
-
         print(f"\n🔍 why is it {last['v']!r}?")
         print(f"   set at  → {last['at']}")
         print(f"   source  → {last['file']}, line {last['line']}")
@@ -95,7 +72,6 @@ class T:
         print()
 
     def log(self) -> None:
-        """Prints the full life of this variable."""
         print(f"\n📼 history — {len(self._history)} state(s)")
         print("  " + "─" * 52)
         for i, e in enumerate(self._history):
@@ -104,7 +80,6 @@ class T:
         print("  " + "─" * 52 + "\n")
 
     def diff(self) -> None:
-        """Shows every change. If numeric, shows the delta too."""
         print(f"\n📊 diffs")
         if len(self._history) < 2:
             print("  only one state so far.\n")
@@ -121,31 +96,20 @@ class T:
         print()
 
     def states(self) -> int:
-        """How many times this variable has changed."""
         return len(self._history)
 
-    # ─── python builtins ────────────────────────────────────────────────────
-
-    def __repr__(self) -> str:
-        return repr(self.value)
-
-    def __str__(self) -> str:
-        return str(self.value)
-
-    def __int__(self):     return int(self.value)
-    def __float__(self):   return float(self.value)
-    def __bool__(self):    return bool(self.value)
-    def __len__(self):     return len(self.value)
-    def __iter__(self):    return iter(self.value)
-
-    # math operators — so x + 5 just works
-    def __add__(self, o):  return self.value + o
-    def __sub__(self, o):  return self.value - o
-    def __mul__(self, o):  return self.value * o
-    def __truediv__(self, o): return self.value / o
-    def __lt__(self, o):   return self.value < o
-    def __le__(self, o):   return self.value <= o
-    def __gt__(self, o):   return self.value > o
-    def __ge__(self, o):   return self.value >= o
-    def __eq__(self, o):   return self.value == o
-    def __ne__(self, o):   return self.value != o
+    def __repr__(self) -> str: return repr(self.value)
+    def __str__(self) -> str:  return str(self.value)
+    def __int__(self):         return int(self.value)
+    def __float__(self):       return float(self.value)
+    def __bool__(self):        return bool(self.value)
+    def __add__(self, o):      return self.value + o
+    def __sub__(self, o):      return self.value - o
+    def __mul__(self, o):      return self.value * o
+    def __truediv__(self, o):  return self.value / o
+    def __lt__(self, o):       return self.value < o
+    def __le__(self, o):       return self.value <= o
+    def __gt__(self, o):       return self.value > o
+    def __ge__(self, o):       return self.value >= o
+    def __eq__(self, o):       return self.value == o
+    def __ne__(self, o):       return self.value != o
